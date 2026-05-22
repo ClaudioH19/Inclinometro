@@ -8,10 +8,10 @@
 </head>
 <body>
   <main class="page">
-    <header class="topbar">
-      <div>
-        <h1>Dashboard Clinostato</h1>
-        <p>sample_time_us = tiempo interno del ESP32 desde el encendido. received_at = hora de llegada al servidor.</p>
+    <header class="hero">
+      <div class="hero-text">
+        <h1>Dashboard de Clinostato</h1>
+        <p>Monitoreo de acelerometro y giroscopio con calculos en tiempo real.</p>
       </div>
       <div class="actions">
         <a id="rawDownload" class="btn" href="/api/download/raw.csv">Descargar CSV</a>
@@ -20,7 +20,34 @@
       </div>
     </header>
 
-    <section class="panel">
+    <section class="panel section">
+      <div class="section-head">
+        <h2>1. Metricas, formulas y metodo</h2>
+      </div>
+      <p class="muted">
+        Metodo breve: el ESP32 registra muestras crudas con <code>sample_time_us</code> relativo al encendido.
+        El servidor calcula magnitudes, orientacion y resumen estadistico por sesion filtrada.
+      </p>
+      <p id="metricsStatus" class="muted">Sin cargar.</p>
+      <div id="metricsGrid" class="metrics-grid"></div>
+
+      <div class="formula-grid">
+        <article class="formula-card"><strong>Tasa de muestreo</strong><code>Hz = 1e6 / mean(delta_sample_time_us)</code></article>
+        <article class="formula-card"><strong>Periodo de muestra</strong><code>ms = mean(delta_sample_time_us) / 1000</code></article>
+        <article class="formula-card"><strong>Aceleracion total</strong><code>|a| = sqrt(ax^2 + ay^2 + az^2)</code></article>
+        <article class="formula-card"><strong>Velocidad angular</strong><code>|w| = sqrt(gx^2 + gy^2 + gz^2)</code></article>
+        <article class="formula-card"><strong>Pitch</strong><code>atan2(-ax, sqrt(ay^2 + az^2))</code></article>
+        <article class="formula-card"><strong>Roll</strong><code>atan2(ay, az)</code></article>
+        <article class="formula-card"><strong>RPM estimada</strong><code>rpm = |gz_dps| / 6</code></article>
+        <article class="formula-card"><strong>Gravedad residual</strong><code>g_res = sqrt(mean(ax)^2 + mean(ay)^2 + mean(az)^2)</code></article>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div class="section-head">
+        <h2>2. Datos, filtros y descarga</h2>
+      </div>
+
       <div class="filters">
         <label>
           <span>Sesion</span>
@@ -42,44 +69,36 @@
             <option value="500">500</option>
           </select>
         </label>
-        <button id="applyFilters" class="btn">Aplicar</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Metricas calculadas</h2>
-      <p id="metricsStatus" class="muted">Sin cargar.</p>
-      <div id="metricsGrid" class="metrics-grid"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Sesiones detectadas</h2>
-      <div class="table-wrap">
-        <table id="sessionsTable">
-          <thead>
-            <tr>
-              <th>session_id</th>
-              <th>batches</th>
-              <th>muestras</th>
-              <th>sample_time inicio (us)</th>
-              <th>sample_time fin (us)</th>
-              <th>received inicio</th>
-              <th>received fin</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="table-head">
-        <h2>Tabla completa de datos y calculos</h2>
-        <div class="pager">
-          <button id="prevPage" class="btn btn-light">Anterior</button>
-          <button id="nextPage" class="btn btn-light">Siguiente</button>
+        <div class="filter-actions">
+          <button id="applyFilters" class="btn">Aplicar</button>
+          <div class="pager">
+            <button id="prevPage" class="btn btn-light">Anterior</button>
+            <button id="nextPage" class="btn btn-light">Siguiente</button>
+          </div>
         </div>
       </div>
+
+      <div class="subpanel">
+        <h3>Sesiones detectadas</h3>
+        <div class="table-wrap">
+          <table id="sessionsTable">
+            <thead>
+              <tr>
+                <th>session_id</th>
+                <th>batches</th>
+                <th>muestras</th>
+                <th>sample_time inicio (us)</th>
+                <th>sample_time fin (us)</th>
+                <th>received inicio</th>
+                <th>received fin</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3>Tabla completa de datos y calculos</h3>
       <p id="samplesStatus" class="muted">Sin cargar.</p>
       <div class="table-wrap">
         <table id="samplesTable">

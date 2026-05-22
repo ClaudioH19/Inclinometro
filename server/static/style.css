@@ -1,11 +1,13 @@
 :root {
-  --bg: #f6f7f9;
+  --bg: #eef2f7;
   --panel: #ffffff;
-  --line: #dde1e7;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --primary: #0b61d6;
-  --danger: #b42318;
+  --line: #d6deea;
+  --text: #17202a;
+  --muted: #5a6675;
+  --primary: #1f5fbf;
+  --primary-soft: #e9f0fb;
+  --danger: #b4233a;
+  --section: #f8fbff;
 }
 
 * {
@@ -22,35 +24,48 @@ body {
 .page {
   max-width: 1500px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 20px;
 }
 
-.topbar,
+.hero,
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 14px;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
-.topbar {
+.hero {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
+  gap: 18px;
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff 0%, #f6f9ff 100%);
 }
 
-.topbar h1 {
+.hero h1 {
   margin: 0 0 6px;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
 }
 
-.topbar p,
+.hero p,
 .muted {
   margin: 0;
   color: var(--muted);
   font-size: 0.92rem;
+}
+
+.hero-text {
+  max-width: 850px;
+}
+
+.section {
+  background: var(--section);
+}
+
+.section-head h2 {
+  margin: 0 0 8px;
 }
 
 .actions,
@@ -66,7 +81,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 180px;
+  min-width: 170px;
 }
 
 label span {
@@ -86,15 +101,16 @@ select {
   border: 1px solid var(--primary);
   background: var(--primary);
   color: #fff;
-  padding: 8px 12px;
+  padding: 9px 13px;
   border-radius: 8px;
   cursor: pointer;
   text-decoration: none;
   font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .btn-light {
-  background: #fff;
+  background: var(--primary-soft);
   color: var(--primary);
 }
 
@@ -108,17 +124,23 @@ h2 {
   font-size: 1.1rem;
 }
 
+.filter-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
 }
 
 .metric {
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px;
-  background: #fbfcfe;
+  padding: 11px;
+  background: #ffffff;
 }
 
 .metric small {
@@ -129,6 +151,42 @@ h2 {
 
 .metric strong {
   font-size: 1.1rem;
+}
+
+.formula-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.formula-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: #ffffff;
+}
+
+.formula-card strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.93rem;
+}
+
+.formula-card code {
+  font-size: 0.86rem;
+  color: #2b4c84;
+}
+
+.subpanel {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.subpanel h3,
+h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
 }
 
 .table-head {
@@ -151,20 +209,29 @@ table {
 th,
 td {
   border-bottom: 1px solid var(--line);
-  padding: 8px 10px;
+  padding: 9px 10px;
   text-align: left;
   font-size: 0.88rem;
   white-space: nowrap;
 }
 
 thead th {
-  background: #f3f6fb;
+  background: #eef4fd;
   position: sticky;
   top: 0;
 }
 
+tbody tr:nth-child(odd) {
+  background: #fbfdff;
+}
+
+tbody tr:hover {
+  background: #eaf2ff;
+}
+
 @media (max-width: 900px) {
-  .topbar {
+  .hero {
     flex-direction: column;
+    align-items: flex-start;
   }
 }
