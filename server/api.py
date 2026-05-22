@@ -11,40 +11,29 @@ from db import (
     DB_PATH,
     clear_database,
     count_samples,
-    fetch_samples_page,
+    fetch_samples,
     initialize_db,
-    list_devices,
-    list_trials,
-    set_trial_label,
+    list_sessions,
     stream_samples_csv,
 )
 
 initialize_db()
-
 app = Flask(__name__)
 
 
-def active_filters() -> dict:
+def filters_from_query() -> dict:
     filters = {}
-    if request.args.get("device_id"):
-        filters["device_id"] = request.args["device_id"]
-    if request.args.get("trial_id"):
-        filters["trial_id"] = int(request.args["trial_id"])
-    if request.args.get("trial_number"):
-        filters["trial_number"] = int(request.args["trial_number"])
+    if request.args.get("session_id"):
+        filters["session_id"] = request.args["session_id"]
     if request.args.get("received_after"):
         filters["received_after"] = request.args["received_after"]
     if request.args.get("received_before"):
         filters["received_before"] = request.args["received_before"]
-    if request.args.get("started_after"):
-        filters["started_after"] = request.args["started_after"]
-    if request.args.get("started_before"):
-        filters["started_before"] = request.args["started_before"]
     return filters
 
 
 @app.get("/")
-def index() -> str:
+def index():
     return render_template("index.html")
 
 
@@ -53,22 +42,9 @@ def health():
     return jsonify({"status": "ok", "sqlite_path": str(DB_PATH), "time": datetime.utcnow().isoformat()})
 
 
-@app.get("/api/devices")
-def devices():
-    return jsonify(list_devices())
-
-
-@app.get("/api/trials")
-def trials():
-    return jsonify(list_trials(request.args.get("device_id")))
-
-
-@app.put("/api/trials/<int:trial_id>/label")
-def update_trial_label(trial_id: int):
-    payload = request.get_json(silent=True) or {}
-    if not set_trial_label(trial_id, payload.get("label")):
-        return jsonify({"error": "trial_not_found"}), 404
-    return jsonify({"ok": True})
+@app.get("/api/sessions")
+def sessions():
+    return jsonify(list_sessions())
 
 
 @app.post("/api/admin/reset")
@@ -79,17 +55,17 @@ def reset_database():
 
 @app.get("/api/metrics")
 def metrics():
-    return jsonify(analyze_motion(active_filters(), request.args.get("rpm_axis", "z")))
+    return jsonify(analyze_motion(filters_from_query(), request.args.get("rpm_axis", "z")))
 
 
 @app.get("/api/samples")
 def samples():
     limit = min(int(request.args.get("limit", "200")), 2000)
     offset = max(int(request.args.get("offset", "0")), 0)
-    filters = active_filters()
+    filters = filters_from_query()
     return jsonify(
         {
-            "items": fetch_samples_page(filters, limit=limit, offset=offset),
+            "items": fetch_samples(filters, limit, offset),
             "total": count_samples(filters),
             "limit": limit,
             "offset": offset,
@@ -101,7 +77,7 @@ def samples():
 def download_raw_csv():
     filename = f"clinostat_raw_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
     return Response(
-        stream_samples_csv(active_filters()),
+        stream_samples_csv(filters_from_query()),
         mimetype="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -109,7 +85,7 @@ def download_raw_csv():
 
 @app.get("/api/download/metrics.csv")
 def download_metrics_csv():
-    metrics_data = analyze_motion(active_filters(), request.args.get("rpm_axis", "z"))
+    metrics_data = analyze_motion(filters_from_query(), request.args.get("rpm_axis", "z"))
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=list(metrics_data.keys()))
     writer.writeheader()

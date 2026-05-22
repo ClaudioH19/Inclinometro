@@ -11,12 +11,12 @@
     <header class="hero">
       <div>
         <p class="eyebrow">Clinostato 3D</p>
-        <h1>Lecturas, pruebas y métricas</h1>
-        <p class="subtle">Explora las pruebas detectadas por reinicio, revisa las métricas y descarga los datos crudos o resumidos.</p>
+        <h1>Sesiones, metricas y datos crudos</h1>
+        <p class="subtle">Cada encendido del ESP32 genera un session_id unico. sample_time_us es tiempo relativo al encendido; received_at es hora de recepcion en servidor.</p>
       </div>
       <div class="hero-actions">
         <a id="rawDownload" class="button" href="/api/download/raw.csv">Descargar crudo</a>
-        <a id="metricsDownload" class="button button-secondary" href="/api/download/metrics.csv">Descargar métricas</a>
+        <a id="metricsDownload" class="button button-secondary" href="/api/download/metrics.csv">Descargar metricas</a>
         <button id="resetDatabase" class="button button-danger">Vaciar base</button>
       </div>
     </header>
@@ -24,12 +24,8 @@
     <section class="panel filters">
       <div class="grid">
         <label>
-          <span>Dispositivo</span>
-          <select id="deviceSelect"></select>
-        </label>
-        <label>
-          <span>Prueba</span>
-          <select id="trialSelect"></select>
+          <span>Sesion</span>
+          <select id="sessionSelect"></select>
         </label>
         <label>
           <span>Eje RPM</span>
@@ -57,7 +53,7 @@
     <section class="layout">
       <div class="panel">
         <div class="panel-head">
-          <h2>Métricas</h2>
+          <h2>Metricas</h2>
           <p id="metricsStatus" class="subtle">Sin cargar.</p>
         </div>
         <div id="metricsGrid" class="metrics-grid"></div>
@@ -65,24 +61,20 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h2>Pruebas</h2>
-          <p class="subtle">Cada prueba se infiere cuando el batch o el tiempo interno vuelven a empezar.</p>
-        </div>
-        <div class="trial-tools">
-          <input id="trialLabelInput" type="text" placeholder="Nombre de la prueba">
-          <button id="saveTrialLabel" class="button button-secondary">Guardar nombre</button>
+          <h2>Sesiones detectadas</h2>
+          <p class="subtle">Lista de session_id recibidos desde el ESP32.</p>
         </div>
         <div class="table-wrap">
-          <table id="trialsTable">
+          <table id="sessionsTable">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Prueba</th>
-                <th>Nombre</th>
-                <th>Inicio</th>
-                <th>Fin</th>
+                <th>session_id</th>
                 <th>Batches</th>
                 <th>Muestras</th>
+                <th>sample_time inicio (us)</th>
+                <th>sample_time fin (us)</th>
+                <th>Recibido inicio</th>
+                <th>Recibido fin</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -94,41 +86,17 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Formulas</h2>
-        <p class="subtle">Resumen corto de como se calcula cada valor del panel.</p>
+        <p class="subtle">Resumen corto de calculo.</p>
       </div>
       <div class="formula-grid">
-        <article class="formula-card">
-          <strong>RPM</strong>
-          <code>rpm = |gyro_axis_dps| / 6</code>
-        </article>
-        <article class="formula-card">
-          <strong>Velocidad angular</strong>
-          <code>|w| = sqrt(gx^2 + gy^2 + gz^2)</code>
-        </article>
-        <article class="formula-card">
-          <strong>Aceleracion</strong>
-          <code>|a| = sqrt(ax^2 + ay^2 + az^2)</code>
-        </article>
-        <article class="formula-card">
-          <strong>Pitch</strong>
-          <code>atan2(-ax, sqrt(ay^2 + az^2))</code>
-        </article>
-        <article class="formula-card">
-          <strong>Roll</strong>
-          <code>atan2(ay, az)</code>
-        </article>
-        <article class="formula-card">
-          <strong>Gravedad residual</strong>
-          <code>g_res = sqrt(mean(ax)^2 + mean(ay)^2 + mean(az)^2)</code>
-        </article>
-        <article class="formula-card">
-          <strong>Residual g*h</strong>
-          <code>g_res * horas_operacion</code>
-        </article>
-        <article class="formula-card">
-          <strong>Horas de operacion</strong>
-          <code>(ultimo_t - primer_t) / 3.6e9</code>
-        </article>
+        <article class="formula-card"><strong>RPM</strong><code>rpm = |gyro_axis_dps| / 6</code></article>
+        <article class="formula-card"><strong>Velocidad angular</strong><code>|w| = sqrt(gx^2 + gy^2 + gz^2)</code></article>
+        <article class="formula-card"><strong>Aceleracion</strong><code>|a| = sqrt(ax^2 + ay^2 + az^2)</code></article>
+        <article class="formula-card"><strong>Pitch</strong><code>atan2(-ax, sqrt(ay^2 + az^2))</code></article>
+        <article class="formula-card"><strong>Roll</strong><code>atan2(ay, az)</code></article>
+        <article class="formula-card"><strong>Gravedad residual</strong><code>g_res = sqrt(mean(ax)^2 + mean(ay)^2 + mean(az)^2)</code></article>
+        <article class="formula-card"><strong>Residual g*h</strong><code>g_res * horas_operacion</code></article>
+        <article class="formula-card"><strong>Horas de operacion</strong><code>sum((t_fin - t_ini)_sesion) / 3.6e9</code></article>
       </div>
     </section>
 
@@ -144,11 +112,10 @@
         <table id="samplesTable">
           <thead>
             <tr>
-              <th>Dispositivo</th>
-              <th>Prueba</th>
-              <th>Nombre</th>
-              <th>Batch</th>
-              <th>Idx</th>
+              <th>id</th>
+              <th>session_id</th>
+              <th>batch_id</th>
+              <th>sample_index</th>
               <th>sample_time_us</th>
               <th>received_at</th>
               <th>ax</th>
@@ -165,7 +132,6 @@
       <p id="samplesStatus" class="subtle">Sin cargar.</p>
     </section>
   </main>
-
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

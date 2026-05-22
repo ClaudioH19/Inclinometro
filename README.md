@@ -12,25 +12,36 @@ Arquitectura:
 
 Archivo: [firmware/esp32_mpu6050_wifi.ino](C:/Users/claud/OneDrive/Escritorio/Inclinometro/firmware/esp32_mpu6050_wifi.ino)
 
-Configura estas constantes:
+Configura:
 
-- `DEVICE_ID`
 - `WIFI_SSID`
 - `MQTT_HOST`
 - `MQTT_PORT`
 
 El firmware:
 
-- captura muestras del `MPU6050` a `50 Hz`
-- genera `sample_time_us = micros() - capture_start_time_us`
-- llena batches de `250` muestras
-- enciende `WiFi/MQTT` solo para publicar
-- publica un mensaje MQTT por batch
-- apaga `WiFi/MQTT` despues de publicar
+- captura a `50 Hz`
+- usa `sample_time_us = micros() - capture_start_us`
+- publica batches de `250` muestras
+- enciende WiFi/MQTT solo para publicar
+- apaga WiFi/MQTT despues de publicar
+- genera `session_id` unico en cada encendido
 
 Topic MQTT:
 
-- `clinostat/{device_id}/motion_batch`
+- `clinostat/motion_batch`
+
+Payload MQTT:
+
+```json
+{
+  "session_id": "123456789",
+  "batch_id": 1,
+  "samples": [
+    [0, 120, -32, 16380, 3, -1, 4]
+  ]
+}
+```
 
 ## Backend
 
@@ -43,36 +54,9 @@ Archivos:
 
 El consumidor:
 
-- se suscribe a `clinostat/+/motion_batch`
-- valida `device_id`, `batch_id`, `sample_format` y `samples`
-- detecta nuevas pruebas cuando el `batch_id` o `sample_time_us` vuelven a empezar
-- guarda pruebas, batches y muestras en SQLite
-
-La API:
-
-- lista dispositivos
-- lista pruebas
-- permite nombrar pruebas
-- calcula gravedad residual, RPM estimadas, horas de operacion, `pitch`, `roll` y aceleracion
-- entrega tabla paginada y descargas CSV
-
-## Dashboard
-
-Ruta:
-
-- `http://localhost:8000/`
-
-Permite:
-
-- filtrar por dispositivo
-- filtrar por prueba
-- filtrar por rango de recepcion
-- elegir eje para estimar RPM
-- ver metricas
-- ver tabla de muestras
-- descargar CSV crudo
-- descargar CSV de metricas
-- poner nombre a una prueba
+- se suscribe a `clinostat/motion_batch`
+- valida `session_id`, `batch_id` y `samples`
+- guarda cada muestra como un registro en SQLite
 
 ## SQLite
 
@@ -80,11 +64,54 @@ Base por defecto:
 
 - `server/data/clinostat.db`
 
-Tablas:
+Tabla:
 
-- `trials`
-- `motion_batches`
-- `motion_samples`
+- `motion_records`
+
+Campos:
+
+- `id`
+- `session_id`
+- `batch_id`
+- `sample_index`
+- `sample_time_us`
+- `accel_x_raw`, `accel_y_raw`, `accel_z_raw`
+- `gyro_x_raw`, `gyro_y_raw`, `gyro_z_raw`
+- `received_at`
+
+## API
+
+Rutas:
+
+- `GET /api/health`
+- `GET /api/sessions`
+- `GET /api/metrics`
+- `GET /api/samples`
+- `GET /api/download/raw.csv`
+- `GET /api/download/metrics.csv`
+- `POST /api/admin/reset`
+
+Filtros:
+
+- `session_id`
+- `received_after`
+- `received_before`
+- `rpm_axis` (solo en metricas)
+
+## Dashboard
+
+Ruta:
+
+- `http://localhost:8000/`
+
+Incluye:
+
+- selector de sesion
+- metricas
+- tabla de sesiones
+- tabla de datos crudos
+- descarga CSV
+- boton para vaciar base
 
 ## Docker Compose
 
@@ -94,9 +121,9 @@ Archivo:
 
 Variables:
 
-- [ .env ](C:/Users/claud/OneDrive/Escritorio/Inclinometro/.env)
+- [.env](C:/Users/claud/OneDrive/Escritorio/Inclinometro/.env)
 
-Levantar servicios:
+Levantar:
 
 ```powershell
 docker compose up --build
@@ -104,40 +131,17 @@ docker compose up --build
 
 Servicios:
 
-- `mqtt` expuesto en `1884`
-- `api` expuesta en `8000`
+- `mqtt` en `1884`
+- `api` en `8000`
 - `consumer` conectado al broker interno
 
-El ESP32 debe apuntar a:
-
-- `MQTT_HOST = IP del servidor`
-- `MQTT_PORT = 1884`
-
-## Ejecucion local sin Docker
-
-```powershell
-cd server
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python consumer.py
-```
-
-En otra terminal:
-
-```powershell
-cd server
-.venv\Scripts\activate
-python api.py
-```
-
-## Verificar SQLite
+## Verificacion rapida
 
 ```powershell
 @'
 import sqlite3
 con = sqlite3.connect("server/data/clinostat.db")
-for row in con.execute("select device_id, trial_number, batch_count, sample_count from trials order by id desc limit 5"):
+for row in con.execute("select session_id, batch_id, sample_index, sample_time_us from motion_records order by id desc limit 5"):
     print(row)
 '@ | python -
 ```

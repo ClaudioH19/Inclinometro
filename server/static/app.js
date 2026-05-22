@@ -1,23 +1,21 @@
-const deviceSelect = document.getElementById("deviceSelect");
-const trialSelect = document.getElementById("trialSelect");
+const sessionSelect = document.getElementById("sessionSelect");
 const rpmAxis = document.getElementById("rpmAxis");
 const receivedAfter = document.getElementById("receivedAfter");
 const receivedBefore = document.getElementById("receivedBefore");
 const metricsGrid = document.getElementById("metricsGrid");
 const metricsStatus = document.getElementById("metricsStatus");
+const sessionsTable = document.querySelector("#sessionsTable tbody");
 const samplesTable = document.querySelector("#samplesTable tbody");
 const samplesStatus = document.getElementById("samplesStatus");
-const trialsTable = document.querySelector("#trialsTable tbody");
-const trialLabelInput = document.getElementById("trialLabelInput");
 const rawDownload = document.getElementById("rawDownload");
 const metricsDownload = document.getElementById("metricsDownload");
 const resetDatabaseButton = document.getElementById("resetDatabase");
 
-let trialsCache = [];
 let sampleOffset = 0;
 const sampleLimit = 100;
+let sessionsCache = [];
 
-function toQueryString(params) {
+function queryFrom(params) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== "" && value !== null && value !== undefined) {
@@ -27,111 +25,94 @@ function toQueryString(params) {
   return query.toString();
 }
 
-function currentFilters() {
+function activeFilters() {
   return {
-    device_id: deviceSelect.value || "",
-    trial_id: trialSelect.value || "",
+    session_id: sessionSelect.value || "",
     rpm_axis: rpmAxis.value,
     received_after: receivedAfter.value ? new Date(receivedAfter.value).toISOString() : "",
     received_before: receivedBefore.value ? new Date(receivedBefore.value).toISOString() : "",
   };
 }
 
-function updateDownloadLinks() {
-  const query = toQueryString(currentFilters());
-  rawDownload.href = `/api/download/raw.csv?${query}`;
-  metricsDownload.href = `/api/download/metrics.csv?${query}`;
-}
-
-function metricCard(label, value) {
+function metric(label, value) {
   return `<article class="metric"><small>${label}</small><strong>${value}</strong></article>`;
 }
 
-function formatNumber(value, digits = 3) {
+function asNumber(value, digits = 3) {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "-";
   }
   return Number(value).toFixed(digits);
 }
 
-async function loadDevices() {
-  const devices = await fetch("/api/devices").then((response) => response.json());
-  deviceSelect.innerHTML = `<option value="">Todos</option>` + devices
-    .map((device) => `<option value="${device.device_id}">${device.device_id}</option>`)
-    .join("");
+function updateDownloads() {
+  const query = queryFrom(activeFilters());
+  rawDownload.href = `/api/download/raw.csv?${query}`;
+  metricsDownload.href = `/api/download/metrics.csv?${query}`;
 }
 
-async function loadTrials() {
-  const currentTrialId = trialSelect.value;
-  const query = deviceSelect.value ? `?device_id=${encodeURIComponent(deviceSelect.value)}` : "";
-  trialsCache = await fetch(`/api/trials${query}`).then((response) => response.json());
-
-  trialSelect.innerHTML = `<option value="">Todas</option>` + trialsCache
-    .map((trial) => `<option value="${trial.id}">#${trial.trial_number} ${trial.label || ""}</option>`)
+async function loadSessions() {
+  const current = sessionSelect.value;
+  sessionsCache = await fetch("/api/sessions").then((response) => response.json());
+  sessionSelect.innerHTML = '<option value="">Todas</option>' + sessionsCache
+    .map((session) => `<option value="${session.session_id}">${session.session_id}</option>`)
     .join("");
-
-  if (trialsCache.some((trial) => String(trial.id) === currentTrialId)) {
-    trialSelect.value = currentTrialId;
+  if (sessionsCache.some((session) => session.session_id === current)) {
+    sessionSelect.value = current;
   }
 
-  trialsTable.innerHTML = trialsCache
+  sessionsTable.innerHTML = sessionsCache
     .map(
-      (trial) => `
+      (session) => `
         <tr>
-          <td>${trial.id}</td>
-          <td>${trial.trial_number}</td>
-          <td>${trial.label || "-"}</td>
-          <td>${trial.started_at}</td>
-          <td>${trial.ended_at}</td>
-          <td>${trial.batch_count}</td>
-          <td>${trial.sample_count}</td>
+          <td>${session.session_id}</td>
+          <td>${session.batch_count}</td>
+          <td>${session.sample_count}</td>
+          <td>${session.first_sample_time_us}</td>
+          <td>${session.last_sample_time_us}</td>
+          <td>${session.first_received_at}</td>
+          <td>${session.last_received_at}</td>
         </tr>
       `,
     )
     .join("");
-
-  const selectedTrial = trialsCache.find((trial) => String(trial.id) === trialSelect.value);
-  trialLabelInput.value = selectedTrial?.label || "";
 }
 
 async function loadMetrics() {
-  const query = toQueryString(currentFilters());
-  const metrics = await fetch(`/api/metrics?${query}`).then((response) => response.json());
-
+  const metrics = await fetch(`/api/metrics?${queryFrom(activeFilters())}`).then((response) => response.json());
   if (!metrics.sample_count) {
-    metricsGrid.innerHTML = metricCard("Estado", metrics.message || "Sin datos");
     metricsStatus.textContent = "No hay datos para este filtro.";
+    metricsGrid.innerHTML = metric("Estado", metrics.message || "Sin datos");
     return;
   }
 
-  metricsStatus.textContent = `${metrics.sample_count} muestras en ${metrics.trial_count} prueba(s).`;
+  metricsStatus.textContent = `${metrics.sample_count} muestras en ${metrics.session_count} sesion(es). Horas calculadas con sample_time_us relativo por sesion.`;
   metricsGrid.innerHTML = [
-    metricCard("Gravedad residual", `${formatNumber(metrics.residual_gravity_g)} g`),
-    metricCard("RPM media", formatNumber(metrics.rpm_mean)),
-    metricCard("RPM maxima", formatNumber(metrics.rpm_max)),
-    metricCard("Velocidad angular media", `${formatNumber(metrics.angular_speed_dps_mean)} dps`),
-    metricCard("Aceleracion media", `${formatNumber(metrics.accel_magnitude_g_mean)} g`),
-    metricCard("Horas de operacion", formatNumber(metrics.operation_hours)),
-    metricCard("Pitch medio", `${formatNumber(metrics.pitch_deg_mean)} deg`),
-    metricCard("Roll medio", `${formatNumber(metrics.roll_deg_mean)} deg`),
-    metricCard("Vector medio ax", `${formatNumber(metrics.mean_ax_g)} g`),
-    metricCard("Vector medio ay", `${formatNumber(metrics.mean_ay_g)} g`),
-    metricCard("Vector medio az", `${formatNumber(metrics.mean_az_g)} g`),
-    metricCard("Residual g*h", formatNumber(metrics.residual_gravity_g_hours)),
+    metric("Gravedad residual", `${asNumber(metrics.residual_gravity_g)} g`),
+    metric("RPM media", asNumber(metrics.rpm_mean)),
+    metric("RPM maxima", asNumber(metrics.rpm_max)),
+    metric("Velocidad angular media", `${asNumber(metrics.angular_speed_dps_mean)} dps`),
+    metric("Aceleracion media", `${asNumber(metrics.accel_magnitude_g_mean)} g`),
+    metric("Horas de operacion", asNumber(metrics.operation_hours)),
+    metric("Pitch medio", `${asNumber(metrics.pitch_deg_mean)} deg`),
+    metric("Roll medio", `${asNumber(metrics.roll_deg_mean)} deg`),
+    metric("Vector medio ax", `${asNumber(metrics.mean_ax_g)} g`),
+    metric("Vector medio ay", `${asNumber(metrics.mean_ay_g)} g`),
+    metric("Vector medio az", `${asNumber(metrics.mean_az_g)} g`),
+    metric("Residual g*h", asNumber(metrics.residual_gravity_g_hours)),
   ].join("");
 }
 
 async function loadSamples() {
-  const query = toQueryString({ ...currentFilters(), limit: sampleLimit, offset: sampleOffset });
+  const query = queryFrom({ ...activeFilters(), limit: sampleLimit, offset: sampleOffset });
   const payload = await fetch(`/api/samples?${query}`).then((response) => response.json());
   samplesStatus.textContent = `${payload.total} filas. Mostrando ${payload.items.length} desde offset ${payload.offset}.`;
   samplesTable.innerHTML = payload.items
     .map(
       (sample) => `
         <tr>
-          <td>${sample.device_id}</td>
-          <td>${sample.trial_number}</td>
-          <td>${sample.trial_label || "-"}</td>
+          <td>${sample.id}</td>
+          <td>${sample.session_id}</td>
           <td>${sample.batch_id}</td>
           <td>${sample.sample_index}</td>
           <td>${sample.sample_time_us}</td>
@@ -148,27 +129,20 @@ async function loadSamples() {
     .join("");
 }
 
-async function refreshAll() {
-  await loadTrials();
-  updateDownloadLinks();
+async function refresh() {
+  await loadSessions();
+  updateDownloads();
   await Promise.all([loadMetrics(), loadSamples()]);
 }
 
 document.getElementById("applyFilters").addEventListener("click", async () => {
   sampleOffset = 0;
-  await refreshAll();
+  await refresh();
 });
 
-deviceSelect.addEventListener("change", async () => {
+sessionSelect.addEventListener("change", async () => {
   sampleOffset = 0;
-  await refreshAll();
-});
-
-trialSelect.addEventListener("change", async () => {
-  const selectedTrial = trialsCache.find((trial) => String(trial.id) === trialSelect.value);
-  trialLabelInput.value = selectedTrial?.label || "";
-  updateDownloadLinks();
-  sampleOffset = 0;
+  updateDownloads();
   await Promise.all([loadMetrics(), loadSamples()]);
 });
 
@@ -182,34 +156,13 @@ document.getElementById("nextPage").addEventListener("click", async () => {
   await loadSamples();
 });
 
-document.getElementById("saveTrialLabel").addEventListener("click", async () => {
-  if (!trialSelect.value) {
-    return;
-  }
-  await fetch(`/api/trials/${trialSelect.value}/label`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ label: trialLabelInput.value }),
-  });
-  await loadTrials();
-});
-
 resetDatabaseButton.addEventListener("click", async () => {
-  const confirmed = window.confirm("Esto borrara todas las pruebas y muestras. Continuar?");
-  if (!confirmed) {
+  if (!window.confirm("Esto borrara todos los datos. Continuar?")) {
     return;
   }
-
   await fetch("/api/admin/reset", { method: "POST" });
-  trialLabelInput.value = "";
   sampleOffset = 0;
-  await loadDevices();
-  await refreshAll();
+  await refresh();
 });
 
-async function boot() {
-  await loadDevices();
-  await refreshAll();
-}
-
-boot();
+refresh();
