@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clinostato Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Clinostato 3D</p>
+        <h1>Lecturas, pruebas y métricas</h1>
+        <p class="subtle">Explora las pruebas detectadas por reinicio, revisa las métricas y descarga los datos crudos o resumidos.</p>
+      </div>
+      <div class="hero-actions">
+        <a id="rawDownload" class="button" href="/api/download/raw.csv">Descargar crudo</a>
+        <a id="metricsDownload" class="button button-secondary" href="/api/download/metrics.csv">Descargar métricas</a>
+        <button id="resetDatabase" class="button button-danger">Vaciar base</button>
+      </div>
+    </header>
+
+    <section class="panel filters">
+      <div class="grid">
+        <label>
+          <span>Dispositivo</span>
+          <select id="deviceSelect"></select>
+        </label>
+        <label>
+          <span>Prueba</span>
+          <select id="trialSelect"></select>
+        </label>
+        <label>
+          <span>Eje RPM</span>
+          <select id="rpmAxis">
+            <option value="z">gyro z</option>
+            <option value="x">gyro x</option>
+            <option value="y">gyro y</option>
+            <option value="magnitude">magnitud</option>
+          </select>
+        </label>
+        <label>
+          <span>Recibido desde</span>
+          <input id="receivedAfter" type="datetime-local">
+        </label>
+        <label>
+          <span>Recibido hasta</span>
+          <input id="receivedBefore" type="datetime-local">
+        </label>
+      </div>
+      <div class="filters-actions">
+        <button id="applyFilters" class="button">Actualizar</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Métricas</h2>
+          <p id="metricsStatus" class="subtle">Sin cargar.</p>
+        </div>
+        <div id="metricsGrid" class="metrics-grid"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Pruebas</h2>
+          <p class="subtle">Cada prueba se infiere cuando el batch o el tiempo interno vuelven a empezar.</p>
+        </div>
+        <div class="trial-tools">
+          <input id="trialLabelInput" type="text" placeholder="Nombre de la prueba">
+          <button id="saveTrialLabel" class="button button-secondary">Guardar nombre</button>
+        </div>
+        <div class="table-wrap">
+          <table id="trialsTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Prueba</th>
+                <th>Nombre</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th>Batches</th>
+                <th>Muestras</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Formulas</h2>
+        <p class="subtle">Resumen corto de como se calcula cada valor del panel.</p>
+      </div>
+      <div class="formula-grid">
+        <article class="formula-card">
+          <strong>RPM</strong>
+          <code>rpm = |gyro_axis_dps| / 6</code>
+        </article>
+        <article class="formula-card">
+          <strong>Velocidad angular</strong>
+          <code>|w| = sqrt(gx^2 + gy^2 + gz^2)</code>
+        </article>
+        <article class="formula-card">
+          <strong>Aceleracion</strong>
+          <code>|a| = sqrt(ax^2 + ay^2 + az^2)</code>
+        </article>
+        <article class="formula-card">
+          <strong>Pitch</strong>
+          <code>atan2(-ax, sqrt(ay^2 + az^2))</code>
+        </article>
+        <article class="formula-card">
+          <strong>Roll</strong>
+          <code>atan2(ay, az)</code>
+        </article>
+        <article class="formula-card">
+          <strong>Gravedad residual</strong>
+          <code>g_res = sqrt(mean(ax)^2 + mean(ay)^2 + mean(az)^2)</code>
+        </article>
+        <article class="formula-card">
+          <strong>Residual g*h</strong>
+          <code>g_res * horas_operacion</code>
+        </article>
+        <article class="formula-card">
+          <strong>Horas de operacion</strong>
+          <code>(ultimo_t - primer_t) / 3.6e9</code>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Datos crudos</h2>
+        <div class="pager">
+          <button id="prevPage" class="button button-secondary">Anterior</button>
+          <button id="nextPage" class="button button-secondary">Siguiente</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="samplesTable">
+          <thead>
+            <tr>
+              <th>Dispositivo</th>
+              <th>Prueba</th>
+              <th>Nombre</th>
+              <th>Batch</th>
+              <th>Idx</th>
+              <th>sample_time_us</th>
+              <th>received_at</th>
+              <th>ax</th>
+              <th>ay</th>
+              <th>az</th>
+              <th>gx</th>
+              <th>gy</th>
+              <th>gz</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p id="samplesStatus" class="subtle">Sin cargar.</p>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

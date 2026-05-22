@@ -1,0 +1,32 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: clinostat-mqtt
+    ports:
+      - "${MQTT_PUBLIC_PORT}:1883"
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  consumer:
+    build: ./server
+    container_name: clinostat-consumer
+    command: python consumer.py
+    depends_on:
+      - mqtt
+    env_file:
+      - .env
+    volumes:
+      - ./server/data:/app/data
+
+  api:
+    build: ./server
+    container_name: clinostat-api
+    command: python api.py
+    depends_on:
+      - consumer
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT}:8000"
+    volumes:
+      - ./server/data:/app/data
