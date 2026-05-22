@@ -18,15 +18,28 @@ services:
     volumes:
       - ./server/data:/app/data
 
-  api:
+  data-api:
     build: ./server
-    container_name: clinostat-api
-    command: python api.py
+    container_name: clinostat-data-api
+    command: python data_api.py
     depends_on:
       - consumer
     env_file:
       - .env
     ports:
-      - "${API_PORT}:8000"
+      - "${DATA_API_PORT}:8001"
+    volumes:
+      - ./server/data:/app/data
+
+  dashboard:
+    build: ./server
+    container_name: clinostat-dashboard
+    command: python api.py
+    depends_on:
+      - data-api
+    env_file:
+      - .env
+    ports:
+      - "${DASHBOARD_PORT}:8000"
     volumes:
       - ./server/data:/app/data

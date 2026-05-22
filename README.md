@@ -51,6 +51,7 @@ Archivos:
 - [server/db.py](C:/Users/claud/OneDrive/Escritorio/Inclinometro/server/db.py)
 - [server/analysis.py](C:/Users/claud/OneDrive/Escritorio/Inclinometro/server/analysis.py)
 - [server/api.py](C:/Users/claud/OneDrive/Escritorio/Inclinometro/server/api.py)
+- [server/data_api.py](C:/Users/claud/OneDrive/Escritorio/Inclinometro/server/data_api.py)
 
 El consumidor:
 
@@ -81,28 +82,39 @@ Campos:
 
 ## API
 
-Rutas:
+La arquitectura queda separada:
+
+- `data-api` para consumo externo de datos (sin HTML)
+- `dashboard` para visualizacion y metricas
+
+Rutas data-api (`:${DATA_API_PORT}`):
 
 - `GET /api/health`
 - `GET /api/sessions`
-- `GET /api/metrics`
 - `GET /api/samples`
 - `GET /api/download/raw.csv`
-- `GET /api/download/metrics.csv`
-- `POST /api/admin/reset`
+
+Rutas dashboard (`:${DASHBOARD_PORT}`):
+
+- `GET /`
+- `GET /dashboard/health`
+- `GET /dashboard/sessions`
+- `GET /dashboard/metrics`
+- `GET /dashboard/samples`
+- `GET /dashboard/download/metrics.csv`
+- `POST /dashboard/admin/reset`
 
 Filtros:
 
 - `session_id`
 - `received_after`
 - `received_before`
-- `rpm_axis` (solo en metricas)
 
 ## Dashboard
 
 Ruta:
 
-- `http://localhost:8000/`
+- `http://localhost:${DASHBOARD_PORT}/`
 
 Incluye:
 
@@ -132,7 +144,8 @@ docker compose up --build
 Servicios:
 
 - `mqtt` en `1884`
-- `api` en `8000`
+- `data-api` en `${DATA_API_PORT}`
+- `dashboard` en `${DASHBOARD_PORT}`
 - `consumer` conectado al broker interno
 
 ## Verificacion rapida

@@ -14,6 +14,8 @@ const resetDatabaseButton = document.getElementById("resetDatabase");
 const ACCEL_LSB_PER_G = 8192.0;
 const GYRO_LSB_PER_DPS = 65.5;
 const DASHBOARD_REFRESH_MS = 5000;
+const DASHBOARD_BASE = "/dashboard";
+const DATA_API_BASE = window.location.origin.replace(/:\d+$/, "") + `:${window.DATA_API_PORT || 8200}/api`;
 
 let sampleOffset = 0;
 let sessionCache = [];
@@ -49,8 +51,8 @@ function metric(label, value) {
 
 function updateDownloads() {
   const query = queryFrom(activeFilters());
-  rawDownload.href = `/api/download/raw.csv?${query}`;
-  metricsDownload.href = `/api/download/metrics.csv?${query}`;
+  rawDownload.href = `${DATA_API_BASE}/download/raw.csv?${query}`;
+  metricsDownload.href = `${DASHBOARD_BASE}/download/metrics.csv?${query}`;
 }
 
 function derivedValues(row) {
@@ -70,7 +72,7 @@ function derivedValues(row) {
 
 async function loadSessions() {
   const current = sessionSelect.value;
-  sessionCache = await fetch("/api/sessions").then((response) => response.json());
+  sessionCache = await fetch(`${DASHBOARD_BASE}/sessions`).then((response) => response.json());
   sessionSelect.innerHTML = '<option value="">Todas</option>' + sessionCache
     .map((session) => `<option value="${session.session_id}">${session.session_id}</option>`)
     .join("");
@@ -97,7 +99,7 @@ async function loadSessions() {
 }
 
 async function loadMetrics() {
-  const metrics = await fetch(`/api/metrics?${queryFrom(activeFilters())}`).then((response) => response.json());
+  const metrics = await fetch(`${DASHBOARD_BASE}/metrics?${queryFrom(activeFilters())}`).then((response) => response.json());
   if (!metrics.sample_count) {
     metricsStatus.textContent = "No hay datos para este filtro.";
     metricsGrid.innerHTML = metric("Estado", metrics.message || "Sin datos");
@@ -120,7 +122,7 @@ async function loadMetrics() {
 async function loadSamples() {
   const limit = Number(limitSelect.value || 100);
   const query = queryFrom({ ...activeFilters(), limit, offset: sampleOffset });
-  const payload = await fetch(`/api/samples?${query}`).then((response) => response.json());
+  const payload = await fetch(`${DATA_API_BASE}/samples?${query}`).then((response) => response.json());
   samplesStatus.textContent = `${payload.total} filas totales | mostrando ${payload.items.length} | offset ${payload.offset}`;
 
   samplesTable.innerHTML = payload.items
@@ -188,7 +190,7 @@ resetDatabaseButton.addEventListener("click", async () => {
   if (!window.confirm("Esto borrara todos los datos. Continuar?")) {
     return;
   }
-  await fetch("/api/admin/reset", { method: "POST" });
+  await fetch(`${DASHBOARD_BASE}/admin/reset`, { method: "POST" });
   sampleOffset = 0;
   await refreshAll();
 });
