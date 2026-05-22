@@ -8,17 +8,7 @@ ACCEL_LSB_PER_G = 8192.0
 GYRO_LSB_PER_DPS = 65.5
 
 
-def rpm_from_axis(axis: str, gx_dps: float, gy_dps: float, gz_dps: float) -> float:
-    if axis == "x":
-        return abs(gx_dps) / 6.0
-    if axis == "y":
-        return abs(gy_dps) / 6.0
-    if axis == "z":
-        return abs(gz_dps) / 6.0
-    return math.sqrt(gx_dps * gx_dps + gy_dps * gy_dps + gz_dps * gz_dps) / 6.0
-
-
-def analyze_motion(filters: dict, rpm_axis: str = "z") -> dict:
+def analyze_motion(filters: dict) -> dict:
     sample_count = 0
     batch_keys = set()
     sessions = set()
@@ -37,10 +27,14 @@ def analyze_motion(filters: dict, rpm_axis: str = "z") -> dict:
     max_roll = float("-inf")
     min_pitch = float("inf")
     max_pitch = float("-inf")
+    sum_dt_us = 0.0
+    dt_count = 0
 
     first_received_at = None
     last_received_at = None
     session_ranges: dict[str, tuple[int, int]] = {}
+    last_session_id = None
+    last_sample_time_us = None
 
     for row in iterate_samples(filters):
         sample_count += 1
@@ -52,6 +46,13 @@ def analyze_motion(filters: dict, rpm_axis: str = "z") -> dict:
 
         start_us, end_us = session_ranges.get(row["session_id"], (row["sample_time_us"], row["sample_time_us"]))
         session_ranges[row["session_id"]] = (min(start_us, row["sample_time_us"]), max(end_us, row["sample_time_us"]))
+        if row["session_id"] == last_session_id and last_sample_time_us is not None:
+            dt = row["sample_time_us"] - last_sample_time_us
+            if dt > 0:
+                sum_dt_us += dt
+                dt_count += 1
+        last_session_id = row["session_id"]
+        last_sample_time_us = row["sample_time_us"]
 
         ax_g = row["accel_x_raw"] / ACCEL_LSB_PER_G
         ay_g = row["accel_y_raw"] / ACCEL_LSB_PER_G
@@ -62,7 +63,7 @@ def analyze_motion(filters: dict, rpm_axis: str = "z") -> dict:
 
         accel_g = math.sqrt(ax_g * ax_g + ay_g * ay_g + az_g * az_g)
         gyro_dps = math.sqrt(gx_dps * gx_dps + gy_dps * gy_dps + gz_dps * gz_dps)
-        rpm = rpm_from_axis(rpm_axis, gx_dps, gy_dps, gz_dps)
+        rpm = abs(gz_dps) / 6.0
         roll = math.degrees(math.atan2(ay_g, az_g))
         pitch = math.degrees(math.atan2(-ax_g, math.sqrt(ay_g * ay_g + az_g * az_g)))
 
@@ -92,11 +93,14 @@ def analyze_motion(filters: dict, rpm_axis: str = "z") -> dict:
             "batch_count": 0,
             "session_count": 0,
             "message": "No hay datos para los filtros seleccionados.",
-            "rpm_axis": rpm_axis,
+            "sample_rate_hz": 0.0,
+            "sample_period_ms": 0.0,
         }
 
     total_operation_us = sum(end_us - start_us for start_us, end_us in session_ranges.values())
     operation_hours = (total_operation_us / 1_000_000.0) / 3600.0
+    mean_dt_us = (sum_dt_us / dt_count) if dt_count > 0 else 0.0
+    sample_rate_hz = (1_000_000.0 / mean_dt_us) if mean_dt_us > 0 else 0.0
 
     mean_ax_g = sum_ax_g / sample_count
     mean_ay_g = sum_ay_g / sample_count
@@ -110,7 +114,8 @@ def analyze_motion(filters: dict, rpm_axis: str = "z") -> dict:
         "first_received_at": first_received_at,
         "last_received_at": last_received_at,
         "operation_hours": operation_hours,
-        "rpm_axis": rpm_axis,
+        "sample_rate_hz": sample_rate_hz,
+        "sample_period_ms": (mean_dt_us / 1000.0) if mean_dt_us > 0 else 0.0,
         "rpm_mean": sum_rpm / sample_count,
         "rpm_min": min_rpm,
         "rpm_max": max_rpm,

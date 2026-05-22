@@ -55,7 +55,7 @@ def reset_database():
 
 @app.get("/api/metrics")
 def metrics():
-    return jsonify(analyze_motion(filters_from_query(), request.args.get("rpm_axis", "z")))
+    return jsonify(analyze_motion(filters_from_query()))
 
 
 @app.get("/api/samples")
@@ -85,7 +85,7 @@ def download_raw_csv():
 
 @app.get("/api/download/metrics.csv")
 def download_metrics_csv():
-    metrics_data = analyze_motion(filters_from_query(), request.args.get("rpm_axis", "z"))
+    metrics_data = analyze_motion(filters_from_query())
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=list(metrics_data.keys()))
     writer.writeheader()

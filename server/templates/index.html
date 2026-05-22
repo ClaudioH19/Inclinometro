@@ -8,33 +8,23 @@
 </head>
 <body>
   <main class="page">
-    <header class="hero">
+    <header class="topbar">
       <div>
-        <p class="eyebrow">Clinostato 3D</p>
-        <h1>Sesiones, metricas y datos crudos</h1>
-        <p class="subtle">Cada encendido del ESP32 genera un session_id unico. sample_time_us es tiempo relativo al encendido; received_at es hora de recepcion en servidor.</p>
+        <h1>Dashboard Clinostato</h1>
+        <p>sample_time_us = tiempo interno del ESP32 desde el encendido. received_at = hora de llegada al servidor.</p>
       </div>
-      <div class="hero-actions">
-        <a id="rawDownload" class="button" href="/api/download/raw.csv">Descargar crudo</a>
-        <a id="metricsDownload" class="button button-secondary" href="/api/download/metrics.csv">Descargar metricas</a>
-        <button id="resetDatabase" class="button button-danger">Vaciar base</button>
+      <div class="actions">
+        <a id="rawDownload" class="btn" href="/api/download/raw.csv">Descargar CSV</a>
+        <a id="metricsDownload" class="btn btn-light" href="/api/download/metrics.csv">Descargar metricas</a>
+        <button id="resetDatabase" class="btn btn-danger">Vaciar base</button>
       </div>
     </header>
 
-    <section class="panel filters">
-      <div class="grid">
+    <section class="panel">
+      <div class="filters">
         <label>
           <span>Sesion</span>
           <select id="sessionSelect"></select>
-        </label>
-        <label>
-          <span>Eje RPM</span>
-          <select id="rpmAxis">
-            <option value="z">gyro z</option>
-            <option value="x">gyro x</option>
-            <option value="y">gyro y</option>
-            <option value="magnitude">magnitud</option>
-          </select>
         </label>
         <label>
           <span>Recibido desde</span>
@@ -44,92 +34,78 @@
           <span>Recibido hasta</span>
           <input id="receivedBefore" type="datetime-local">
         </label>
-      </div>
-      <div class="filters-actions">
-        <button id="applyFilters" class="button">Actualizar</button>
-      </div>
-    </section>
-
-    <section class="layout">
-      <div class="panel">
-        <div class="panel-head">
-          <h2>Metricas</h2>
-          <p id="metricsStatus" class="subtle">Sin cargar.</p>
-        </div>
-        <div id="metricsGrid" class="metrics-grid"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-head">
-          <h2>Sesiones detectadas</h2>
-          <p class="subtle">Lista de session_id recibidos desde el ESP32.</p>
-        </div>
-        <div class="table-wrap">
-          <table id="sessionsTable">
-            <thead>
-              <tr>
-                <th>session_id</th>
-                <th>Batches</th>
-                <th>Muestras</th>
-                <th>sample_time inicio (us)</th>
-                <th>sample_time fin (us)</th>
-                <th>Recibido inicio</th>
-                <th>Recibido fin</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+        <label>
+          <span>Filas por pagina</span>
+          <select id="limitSelect">
+            <option value="100">100</option>
+            <option value="250">250</option>
+            <option value="500">500</option>
+          </select>
+        </label>
+        <button id="applyFilters" class="btn">Aplicar</button>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-head">
-        <h2>Formulas</h2>
-        <p class="subtle">Resumen corto de calculo.</p>
-      </div>
-      <div class="formula-grid">
-        <article class="formula-card"><strong>RPM</strong><code>rpm = |gyro_axis_dps| / 6</code></article>
-        <article class="formula-card"><strong>Velocidad angular</strong><code>|w| = sqrt(gx^2 + gy^2 + gz^2)</code></article>
-        <article class="formula-card"><strong>Aceleracion</strong><code>|a| = sqrt(ax^2 + ay^2 + az^2)</code></article>
-        <article class="formula-card"><strong>Pitch</strong><code>atan2(-ax, sqrt(ay^2 + az^2))</code></article>
-        <article class="formula-card"><strong>Roll</strong><code>atan2(ay, az)</code></article>
-        <article class="formula-card"><strong>Gravedad residual</strong><code>g_res = sqrt(mean(ax)^2 + mean(ay)^2 + mean(az)^2)</code></article>
-        <article class="formula-card"><strong>Residual g*h</strong><code>g_res * horas_operacion</code></article>
-        <article class="formula-card"><strong>Horas de operacion</strong><code>sum((t_fin - t_ini)_sesion) / 3.6e9</code></article>
+      <h2>Metricas calculadas</h2>
+      <p id="metricsStatus" class="muted">Sin cargar.</p>
+      <div id="metricsGrid" class="metrics-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Sesiones detectadas</h2>
+      <div class="table-wrap">
+        <table id="sessionsTable">
+          <thead>
+            <tr>
+              <th>session_id</th>
+              <th>batches</th>
+              <th>muestras</th>
+              <th>sample_time inicio (us)</th>
+              <th>sample_time fin (us)</th>
+              <th>received inicio</th>
+              <th>received fin</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-head">
-        <h2>Datos crudos</h2>
+      <div class="table-head">
+        <h2>Tabla completa de datos y calculos</h2>
         <div class="pager">
-          <button id="prevPage" class="button button-secondary">Anterior</button>
-          <button id="nextPage" class="button button-secondary">Siguiente</button>
+          <button id="prevPage" class="btn btn-light">Anterior</button>
+          <button id="nextPage" class="btn btn-light">Siguiente</button>
         </div>
       </div>
+      <p id="samplesStatus" class="muted">Sin cargar.</p>
       <div class="table-wrap">
         <table id="samplesTable">
           <thead>
             <tr>
               <th>id</th>
               <th>session_id</th>
-              <th>batch_id</th>
-              <th>sample_index</th>
+              <th>batch</th>
+              <th>idx</th>
               <th>sample_time_us</th>
               <th>received_at</th>
-              <th>ax</th>
-              <th>ay</th>
-              <th>az</th>
-              <th>gx</th>
-              <th>gy</th>
-              <th>gz</th>
+              <th>ax_raw</th>
+              <th>ay_raw</th>
+              <th>az_raw</th>
+              <th>gx_raw</th>
+              <th>gy_raw</th>
+              <th>gz_raw</th>
+              <th>accel_g</th>
+              <th>pitch_deg</th>
+              <th>roll_deg</th>
+              <th>rpm_est</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
-      <p id="samplesStatus" class="subtle">Sin cargar.</p>
     </section>
   </main>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
